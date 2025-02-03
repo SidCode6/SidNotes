@@ -14,118 +14,99 @@ export interface Note {
   tags: string[];
   createdAt: Date;
   updatedAt: Date;
-  userId: string;  // Required for user identification
-  isPinned?: boolean;  // Add pinned status
+  userId: string;
+  isPinned?: boolean;
   attachments?: Attachment[];
 }
 
 const DB_NAME = 'MinNotesDB';
-const DB_VERSION = 2;
-const STORE_NAME = 'notes';
-
+const DB_VERSION = 1;
 let db: IDBDatabase | null = null;
 
-export const initDB = (): Promise<IDBDatabase> => {
+export const initDB = (): Promise<void> => {
   return new Promise((resolve, reject) => {
-    if (db) {
-      resolve(db);
+    if (!window.indexedDB) {
+      reject(new Error('Your browser doesn\'t support IndexedDB'));
       return;
     }
 
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onerror = () => {
-      console.error('Failed to open database:', request.error);
-      reject(request.error);
+    request.onerror = (event) => {
+      console.error('Database error:', event);
+      reject(new Error('Could not open database'));
     };
 
-    request.onsuccess = () => {
-      db = request.result;
-      resolve(db);
+    request.onsuccess = (event) => {
+      db = (event.target as IDBOpenDBRequest).result;
+      resolve();
     };
 
     request.onupgradeneeded = (event) => {
       const database = (event.target as IDBOpenDBRequest).result;
       
-      if (!database.objectStoreNames.contains(STORE_NAME)) {
-        const store = database.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      if (!database.objectStoreNames.contains('notes')) {
+        const store = database.createObjectStore('notes', { keyPath: 'id' });
         store.createIndex('userId', 'userId', { unique: false });
-      } else {
-        const transaction = (event.target as IDBOpenDBRequest).transaction;
-        if (transaction) {
-          const store = transaction.objectStore(STORE_NAME);
-          if (!store.indexNames.contains('userId')) {
-            store.createIndex('userId', 'userId', { unique: false });
-          }
-        }
       }
     };
   });
 };
 
 export const saveNotes = async (notes: Note[], userId: string): Promise<void> => {
-  if (!userId) {
-    throw new Error('User ID is required to save notes');
+  if (!db) {
+    await initDB();
   }
 
-  const db = await initDB();
-  const tx = db.transaction(STORE_NAME, 'readwrite');
-  const store = tx.objectStore(STORE_NAME);
-  
-  const userIndex = store.index('userId');
-  const userNotesRequest = userIndex.getAll(userId);
-  
   return new Promise((resolve, reject) => {
-    userNotesRequest.onsuccess = async () => {
-      try {
-        const existingNotes = userNotesRequest.result;
-        for (const note of existingNotes) {
-          await store.delete(note.id);
-        }
+    try {
+      const transaction = db!.transaction(['notes'], 'readwrite');
+      const store = transaction.objectStore('notes');
+      const userIndex = store.index('userId');
 
-        for (const note of notes) {
-          const noteWithUser = {
-            ...note,
-            userId,
-            createdAt: note.createdAt.toISOString(),
-            updatedAt: note.updatedAt.toISOString()
-          };
-          store.add(noteWithUser);
+      // First, delete all existing notes for this user
+      const deleteRequest = userIndex.openKeyCursor(userId);
+      deleteRequest.onsuccess = (event) => {
+        const cursor = (event.target as IDBRequest).result;
+        if (cursor) {
+          store.delete(cursor.primaryKey);
+          cursor.continue();
+        } else {
+          // After deletion, add all the new notes
+          notes.forEach(note => {
+            store.add(note);
+          });
         }
+      };
 
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    userNotesRequest.onerror = () => reject(userNotesRequest.error);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(new Error('Failed to save notes'));
+    } catch (error) {
+      reject(error);
+    }
   });
 };
 
 export const loadNotes = async (userId: string): Promise<Note[]> => {
-  if (!userId) {
-    return []; 
+  if (!db) {
+    await initDB();
   }
 
-  const db = await initDB();
-  const tx = db.transaction(STORE_NAME, 'readonly');
-  const store = tx.objectStore(STORE_NAME);
-  const userIndex = store.index('userId');
-
   return new Promise((resolve, reject) => {
-    const request = userIndex.getAll(userId);
-    
-    request.onsuccess = () => {
-      const notes = request.result.map(note => ({
-        ...note,
-        createdAt: new Date(note.createdAt),
-        updatedAt: new Date(note.updatedAt)
-      }));
-      resolve(notes);
-    };
-    
-    request.onerror = () => reject(request.error);
+    try {
+      const transaction = db!.transaction(['notes'], 'readonly');
+      const store = transaction.objectStore('notes');
+      const userIndex = store.index('userId');
+      const request = userIndex.getAll(userId);
+
+      request.onsuccess = () => {
+        const notes = request.result;
+        resolve(notes || []);
+      };
+
+      request.onerror = () => reject(new Error('Failed to load notes'));
+    } catch (error) {
+      reject(error);
+    }
   });
 };
