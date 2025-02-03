@@ -39,52 +39,6 @@ export default function NotesApp() {
     }
   };
 
-  // Initialize database and load user
-  useEffect(() => {
-    const init = async () => {
-      try {
-        await initDB();
-        const currentUser = getCurrentUser();
-        if (currentUser) {
-          setUser(currentUser);
-          const userNotes = await loadNotes(currentUser.id);
-          setNotes(userNotes);
-        }
-      } catch (error) {
-        console.error('Failed to initialize:', error);
-      }
-    };
-    init();
-  }, []);
-
-  const handleNewNote = async () => {
-    if (!user?.id) return;
-
-    const newNote: Note = {
-      id: crypto.randomUUID(),
-      title: 'Untitled Note',
-      content: '',
-      folder: 'Personal',
-      tags: [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      userId: user.id,
-      isPinned: false,
-      attachments: []
-    };
-    
-    try {
-      setNotes([newNote, ...notes]);
-      setSelectedNote(newNote);
-      await saveNotes([newNote, ...notes], user.id);
-    } catch (error) {
-      console.error('Failed to create note:', error);
-      // Revert changes if save failed
-      setNotes(notes);
-      setSelectedNote(null);
-    }
-  };
-
   // Rest of your component code from page.tsx...
   // Copy all the functions and JSX here
 
