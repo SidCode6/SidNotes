@@ -39,8 +39,6 @@ export default function NotesApp() {
 
   // Save notes with debouncing
   useEffect(() => {
-    let saveTimeout: NodeJS.Timeout;
-
     const saveUserNotes = async () => {
       if (user && notes.length > 0) {
         try {
@@ -55,10 +53,9 @@ export default function NotesApp() {
     };
 
     // Debounce save operation
-    clearTimeout(saveTimeout);
-    saveTimeout = setTimeout(saveUserNotes, 1000);
+    const timeoutId = setTimeout(saveUserNotes, 1000);
 
-    return () => clearTimeout(saveTimeout);
+    return () => clearTimeout(timeoutId);
   }, [notes, user]);
 
   const toggleTheme = () => {
