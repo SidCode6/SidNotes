@@ -8,6 +8,8 @@ const AUTH_KEY = 'minnotes_auth';
 const DB_VERSION = 1;
 const DB_NAME = 'MinNotesAuthDB';
 
+const isClient = typeof window !== 'undefined';
+
 let db: IDBDatabase | null = null;
 
 // Add crypto utilities for password hashing
@@ -96,11 +98,13 @@ export const signUp = async (email: string, password: string): Promise<User> => 
       const addRequest = store.add({ ...user, password: hashedPassword });
       
       addRequest.onsuccess = () => {
-        const session = {
-          user,
-          expiresAt: Date.now() + 24 * 60 * 60 * 1000
-        };
-        localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+        if (isClient) {
+          const session = {
+            user,
+            expiresAt: Date.now() + 24 * 60 * 60 * 1000
+          };
+          localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+        }
         resolve(user);
       };
 
@@ -151,11 +155,13 @@ export const signIn = async (email: string, password: string): Promise<User> => 
       }
 
       const userData: User = { id: user.id, email: user.email };
-      const session = {
-        user: userData,
-        expiresAt: Date.now() + 24 * 60 * 60 * 1000
-      };
-      localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+      if (isClient) {
+        const session = {
+          user: userData,
+          expiresAt: Date.now() + 24 * 60 * 60 * 1000
+        };
+        localStorage.setItem(AUTH_KEY, JSON.stringify(session));
+      }
       resolve(userData);
     };
 
@@ -174,6 +180,7 @@ export const signIn = async (email: string, password: string): Promise<User> => 
 };
 
 export const getCurrentUser = (): User | null => {
+  if (!isClient) return null;
   const auth = localStorage.getItem(AUTH_KEY);
   if (!auth) return null;
   
@@ -186,6 +193,8 @@ export const getCurrentUser = (): User | null => {
   return session.user;
 };
 
-export const signOut = () => {
-  localStorage.removeItem(AUTH_KEY);
+export const signOut = async (): Promise<void> => {
+  if (isClient) {
+    localStorage.removeItem(AUTH_KEY);
+  }
 };

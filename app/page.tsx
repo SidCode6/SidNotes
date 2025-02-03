@@ -25,8 +25,14 @@ export default function Home() {
   const toggleTheme = () => {
     const newTheme = !isDark;
     setIsDark(newTheme);
-    localStorage.setItem('theme', newTheme ? 'dark' : 'light');
-    document.documentElement.classList.toggle('dark');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', newTheme ? 'dark' : 'light');
+      if (newTheme) {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    }
   };
 
   const exportNotes = () => {
@@ -120,14 +126,16 @@ export default function Home() {
       }
     };
 
-    const savedTheme = localStorage.getItem('theme') === 'dark';
+    loadNotesForUser();
+  }, [user?.id]);
+
+  useEffect(() => {
+    const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
     setIsDark(savedTheme);
     if (savedTheme) {
       document.documentElement.classList.add('dark');
     }
-
-    loadNotesForUser();
-  }, [user?.id]);
+  }, []);
 
   // Auto-save functionality
   useEffect(() => {
