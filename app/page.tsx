@@ -3,6 +3,11 @@
 import { useState, useEffect } from 'react';
 import { initDB, saveNotes, loadNotes, Note, Attachment } from './db';
 import { getCurrentUser, signIn, signUp, signOut, User } from './auth';
+import dynamic from 'next/dynamic'
+
+const NotesApp = dynamic(() => import('./components/NotesApp'), {
+  ssr: false,
+})
 
 export default function Home() {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -494,107 +499,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 p-6 bg-white dark:bg-gray-900 overflow-y-auto">
-        {selectedNote ? (
-          <div className="h-full flex flex-col">
-            <input
-              type="text"
-              value={selectedNote.title}
-              onChange={(e) => {
-                setSelectedNote({...selectedNote, title: e.target.value});
-              }}
-              className="text-2xl font-bold bg-transparent border-none outline-none mb-4 dark:text-white focus:ring-2 focus:ring-blue-500 rounded"
-              placeholder="Note title"
-            />
-
-            {/* Attachments Section */}
-            {selectedNote.attachments && selectedNote.attachments.length > 0 && (
-              <div className="mb-4 flex flex-wrap gap-4">
-                {selectedNote.attachments.map(attachment => (
-                  <div key={attachment.id} className="relative group">
-                    {attachment.type === 'image' ? (
-                      <div className="relative cursor-pointer group/preview">
-                        <img
-                          src={attachment.data}
-                          alt={attachment.name}
-                          className="max-h-40 rounded border border-gray-200 dark:border-gray-700"
-                          onClick={() => setPreviewAttachment(attachment)}
-                        />
-                        <div className="absolute top-2 right-2 opacity-0 group-hover/preview:opacity-100 transition-opacity">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              downloadAttachment(attachment);
-                            }}
-                            className="p-1 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 shadow-sm"
-                            title="Download"
-                          >
-                            ⬇️
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2 p-2 rounded border border-gray-200 dark:border-gray-700">
-                        <span>📄</span>
-                        <span 
-                          className="text-sm cursor-pointer hover:text-blue-500"
-                          onClick={() => setPreviewAttachment(attachment)}
-                        >
-                          {attachment.name}
-                        </span>
-                        <button
-                          onClick={() => downloadAttachment(attachment)}
-                          className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-                          title="Download"
-                        >
-                          ⬇️
-                        </button>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => removeAttachment(attachment.id)}
-                      className="absolute top-1 right-1 p-1 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove attachment"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <textarea
-              value={selectedNote.content}
-              onChange={(e) => {
-                setSelectedNote({...selectedNote, content: e.target.value});
-              }}
-              className="flex-1 w-full bg-transparent border-none outline-none resize-none dark:text-white focus:ring-2 focus:ring-blue-500 rounded"
-              placeholder="Start writing..."
-            />
-            <div className="flex justify-between items-center mt-4 text-sm text-gray-500 dark:text-gray-400">
-              <div className="flex gap-4">
-                <span>Words: {getWordCount(selectedNote.content)}</span>
-                <span>Characters: {getCharacterCount(selectedNote.content)}</span>
-                <span>Last updated: {new Date(selectedNote.updatedAt).toLocaleString()}</span>
-                {isSaving && <span>Saving...</span>}
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="cursor-pointer p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800">
-                  <input
-                    type="file"
-                    accept="image/*,.pdf"
-                    onChange={handleAttachment}
-                    className="hidden"
-                  />
-                  <span title="Add attachment">📎</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-gray-400">
-            <p>Select a note or create a new one</p>
-          </div>
-        )}
+        <NotesApp />
       </main>
 
       {showAuth && (
