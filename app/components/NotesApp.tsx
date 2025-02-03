@@ -17,14 +17,49 @@ export default function NotesApp() {
   const [previewAttachment, setPreviewAttachment] = useState<Attachment | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize theme
+  // Initialize theme and check authentication
   useEffect(() => {
     const savedTheme = typeof window !== 'undefined' ? localStorage.getItem('theme') === 'dark' : false;
     setIsDark(savedTheme);
     if (savedTheme) {
       document.documentElement.classList.add('dark');
     }
+
+    // Check if user is already authenticated
+    const checkAuth = async () => {
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+      if (currentUser) {
+        const userNotes = await loadNotes(currentUser.id);
+        setNotes(userNotes);
+      }
+    };
+    checkAuth();
   }, []);
+
+  // Save notes with debouncing
+  useEffect(() => {
+    let saveTimeout: NodeJS.Timeout;
+
+    const saveUserNotes = async () => {
+      if (user && notes.length > 0) {
+        try {
+          setIsSaving(true);
+          await saveNotes(notes, user.id);
+        } catch (error) {
+          console.error('Failed to save notes:', error);
+        } finally {
+          setIsSaving(false);
+        }
+      }
+    };
+
+    // Debounce save operation
+    clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(saveUserNotes, 1000);
+
+    return () => clearTimeout(saveTimeout);
+  }, [notes, user]);
 
   const toggleTheme = () => {
     const newTheme = !isDark;
@@ -37,6 +72,28 @@ export default function NotesApp() {
         document.documentElement.classList.remove('dark');
       }
     }
+  };
+
+  const handleNewNote = () => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+
+    const newNote: Note = {
+      id: crypto.randomUUID(),
+      title: 'Untitled Note',
+      content: '',
+      folder: '',
+      tags: [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      userId: user.id,
+      attachments: [],
+    };
+    
+    setNotes(prevNotes => [newNote, ...prevNotes]);
+    setSelectedNote(newNote);
   };
 
   // Rest of your component code from page.tsx...

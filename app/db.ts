@@ -72,41 +72,51 @@ export const saveNotes = async (notes: Note[], userId: string): Promise<void> =>
   const tx = db.transaction(STORE_NAME, 'readwrite');
   const store = tx.objectStore(STORE_NAME);
   
-  const userIndex = store.index('userId');
-  const userNotesRequest = userIndex.getAll(userId);
-  
   return new Promise((resolve, reject) => {
-    userNotesRequest.onsuccess = async () => {
+    const userIndex = store.index('userId');
+    const userNotesRequest = userIndex.getAll(userId);
+    
+    userNotesRequest.onerror = () => {
+      reject(userNotesRequest.error);
+    };
+
+    userNotesRequest.onsuccess = () => {
       try {
         const existingNotes = userNotesRequest.result;
-        for (const note of existingNotes) {
-          await store.delete(note.id);
-        }
+        
+        // Delete existing notes
+        existingNotes.forEach(note => {
+          store.delete(note.id);
+        });
 
-        for (const note of notes) {
+        // Add new notes
+        notes.forEach(note => {
           const noteWithUser = {
             ...note,
             userId,
-            createdAt: note.createdAt.toISOString(),
-            updatedAt: note.updatedAt.toISOString()
+            createdAt: note.createdAt instanceof Date ? note.createdAt.toISOString() : note.createdAt,
+            updatedAt: note.updatedAt instanceof Date ? note.updatedAt.toISOString() : note.updatedAt
           };
           store.add(noteWithUser);
-        }
+        });
 
-        tx.oncomplete = () => resolve();
-        tx.onerror = () => reject(tx.error);
+        tx.oncomplete = () => {
+          resolve();
+        };
+
+        tx.onerror = () => {
+          reject(tx.error);
+        };
       } catch (error) {
         reject(error);
       }
     };
-    
-    userNotesRequest.onerror = () => reject(userNotesRequest.error);
   });
 };
 
 export const loadNotes = async (userId: string): Promise<Note[]> => {
   if (!userId) {
-    return []; 
+    return [];
   }
 
   const db = await initDB();
@@ -116,7 +126,7 @@ export const loadNotes = async (userId: string): Promise<Note[]> => {
 
   return new Promise((resolve, reject) => {
     const request = userIndex.getAll(userId);
-    
+
     request.onsuccess = () => {
       const notes = request.result.map(note => ({
         ...note,
@@ -125,7 +135,9 @@ export const loadNotes = async (userId: string): Promise<Note[]> => {
       }));
       resolve(notes);
     };
-    
-    request.onerror = () => reject(request.error);
+
+    request.onerror = () => {
+      reject(request.error);
+    };
   });
 };
